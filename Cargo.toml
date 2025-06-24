@@ -1,0 +1,3 @@
+[workspace]
+members = ["miniparse-lib", "miniparse-cli"]
+resolver = "3"
