@@ -33,6 +33,11 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
     for line in ini_string.lines().map(str::trim) {
         log::debug!("Parsing line: {line}");
 
+        if line.is_empty() {
+            log::debug!("Line is empty: skipping");
+            continue;
+        }
+
         if let Some(key_value_captures) = key_value_regex.captures(line) {
             log::debug!("Line matched key-value regex.");
             current_section_builder = current_section_builder.add_entry(IniEntry::try_from(key_value_captures)?);
@@ -59,10 +64,6 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
                 None => return Err(ParseError::RegexCaptureGroupNotFound(SECTION_NAME_GROUP_NAME)),
             }
 
-            continue;
-        }
-
-        if line.is_empty() {
             continue;
         }
 
