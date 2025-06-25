@@ -28,7 +28,7 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
     let section_header_regex = Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$"))?;
 
     let mut ini_file_builder = IniFileBuilder::new();
-    let mut current_section_builder = IniSectionBuilder::new();
+    let mut current_section_builder = IniSectionBuilder::new().set_id(SectionId::Global);
 
     for line in ini_string.lines().map(str::trim) {
         log::debug!("Parsing line: {line}");
