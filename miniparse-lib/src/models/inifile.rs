@@ -25,7 +25,7 @@ impl<'content> Display for IniFile<'content> {
         }
         for (section_name, section) in self.sections.iter() {
             writeln!(f, "[{section_name}]")?;
-            writeln!(f, "{section}")?;
+            write!(f, "{section}")?;
         }
         Ok(())
     }

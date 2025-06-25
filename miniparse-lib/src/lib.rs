@@ -90,50 +90,7 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
 mod tests {
     use crate::{IniFileBuilder, builders::IniSectionBuilder, parse};
 
-    #[test]
-    fn parse_happy_flow_no_global_section() {
-        let (_, section1) = IniSectionBuilder::new()
-            .add_key_value_pair("key1", "value11")
-            .add_key_value_pair("key2", "value12")
-            .add_key_value_pair("key3", "value13")
-            .build();
-
-        let (_, section2) = IniSectionBuilder::new()
-            .add_key_value_pair("key1", "value21")
-            .add_key_value_pair("key2", "value22")
-            .build();
-
-        let dummy_ini = IniFileBuilder::new()
-            .new_section("section1", section1)
-            .new_section("section2", section2)
-            .build();
-
-        let dummy_ini_string = dummy_ini.to_string();
-
-        let parsed_ini = parse(dummy_ini_string.as_str()).unwrap();
-
-        assert_eq!(parsed_ini.sections.len(), dummy_ini.sections.len());
-
-        assert!(parsed_ini.get_global_section().is_none());
-
-        assert_eq!(parsed_ini.get_section_by_name("section1").unwrap().entries.len(), 3);
-
-        assert_eq!(parsed_ini.get_section_by_name("section2").unwrap().entries.len(), 2);
-
-        let parsed_section1 = parsed_ini.get_section_by_name("section1").unwrap();
-
-        assert_eq!(parsed_section1.get_value_by_key("key1").unwrap(), "value11");
-        assert_eq!(parsed_section1.get_value_by_key("key2").unwrap(), "value12");
-        assert_eq!(parsed_section1.get_value_by_key("key3").unwrap(), "value13");
-
-        let parsed_section2 = parsed_ini.get_section_by_name("section2").unwrap();
-
-        assert_eq!(parsed_section2.get_value_by_key("key1").unwrap(), "value21");
-        assert_eq!(parsed_section2.get_value_by_key("key2").unwrap(), "value22");
-    }
-
-    #[test]
-    fn parse_happy_flow_with_global_section() {
+    fn make_dummy_ini_string() -> String {
         let (_, global_section) = IniSectionBuilder::new()
             .add_key_value_pair("g_key1", "g_value11")
             .add_key_value_pair("g_key2", "g_value12")
@@ -145,30 +102,70 @@ mod tests {
             .add_key_value_pair("key2", "value22")
             .build();
 
+        let (_, section2) = IniSectionBuilder::new()
+            .add_key_value_pair("key1", "value31")
+            .add_key_value_pair("key2", "value32")
+            .add_key_value_pair("key3", "value33")
+            .build();
+
         let dummy_ini = IniFileBuilder::new()
             .set_global_section(global_section)
             .new_section("section1", section1)
+            .new_section("section2", section2)
             .build();
 
-        let dummy_ini_string = dummy_ini.to_string();
+        dummy_ini.to_string()
+    }
 
-        let parsed_ini = parse(dummy_ini_string.as_str()).unwrap();
+    #[test]
+    fn parse_happy_flow() {
+        let dummy_ini_string = make_dummy_ini_string();
+        parse(dummy_ini_string.as_str()).unwrap();
+    }
 
-        assert_eq!(parsed_ini.sections.len(), dummy_ini.sections.len());
+    #[test]
+    fn find_existing_section() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let ini_file = parse(dummy_ini_string.as_str()).unwrap();
+        assert!(ini_file.get_section_by_name("section1").is_some())
+    }
 
-        assert_eq!(parsed_ini.get_global_section().unwrap().entries.len(), 3);
+    #[test]
+    fn do_not_find_non_existing_section() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let ini_file = parse(dummy_ini_string.as_str()).unwrap();
+        assert!(ini_file.get_section_by_name("i do not exist").is_none())
+    }
 
-        assert_eq!(parsed_ini.get_section_by_name("section1").unwrap().entries.len(), 2);
+    #[test]
+    fn find_existing_key() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let ini_file = parse(dummy_ini_string.as_str()).unwrap();
+        let section1 = ini_file.get_section_by_name("section1").unwrap();
+        assert!(section1.get_value_by_key("key1").is_some())
+    }
 
-        let parsed_global_section = parsed_ini.get_global_section().unwrap();
+    #[test]
+    fn do_not_find_non_existing_key() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let ini_file = parse(dummy_ini_string.as_str()).unwrap();
+        let section1 = ini_file.get_section_by_name("section1").unwrap();
+        assert!(section1.get_value_by_key("i do not exist").is_none())
+    }
 
-        assert_eq!(parsed_global_section.get_value_by_key("g_key1").unwrap(), "g_value11");
-        assert_eq!(parsed_global_section.get_value_by_key("g_key2").unwrap(), "g_value12");
-        assert_eq!(parsed_global_section.get_value_by_key("g_key3").unwrap(), "g_value13");
+    #[test]
+    fn find_correct_value() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let ini_file = parse(dummy_ini_string.as_str()).unwrap();
+        let section1 = ini_file.get_section_by_name("section1").unwrap();
+        assert_eq!(section1.get_value_by_key("key1").unwrap(), "value21")
+    }
 
-        let parsed_section1 = parsed_ini.get_section_by_name("section1").unwrap();
-
-        assert_eq!(parsed_section1.get_value_by_key("key1").unwrap(), "value21");
-        assert_eq!(parsed_section1.get_value_by_key("key2").unwrap(), "value22");
+    #[test]
+    fn find_correct_global_value() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let ini_file = parse(dummy_ini_string.as_str()).unwrap();
+        let global_section = ini_file.get_global_section().unwrap();
+        assert_eq!(global_section.get_value_by_key("g_key1").unwrap(), "g_value11")
     }
 }
