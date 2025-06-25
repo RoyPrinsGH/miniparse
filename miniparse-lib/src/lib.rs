@@ -45,7 +45,7 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
     let section_header_regex = Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$"))?;
 
     let mut ini_file_builder = IniFileBuilder::new();
-    let mut current_section_builder = IniSectionBuilder::new().set_id(SectionId::Global);
+    let mut current_section_builder = IniSectionBuilder::new(SectionId::Global);
 
     for line in ini_string.lines().map(str::trim) {
         log::debug!("Parsing line: {line}");
@@ -70,7 +70,7 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
                 .ok_or(ParseError::RegexCaptureGroupNotFound(SECTION_NAME_GROUP_NAME))?
                 .as_str();
 
-            current_section_builder = IniSectionBuilder::new().set_id(SectionId::Named(new_section_name));
+            current_section_builder = IniSectionBuilder::new(SectionId::Named(new_section_name));
             continue;
         }
 
@@ -89,18 +89,18 @@ mod tests {
     use crate::{IniFileBuilder, builders::IniSectionBuilder, parse};
 
     fn make_dummy_ini_string() -> String {
-        let (_, global_section) = IniSectionBuilder::new()
+        let (_, global_section) = IniSectionBuilder::default()
             .add_key_value_pair("g_key1", "g_value11")
             .add_key_value_pair("g_key2", "g_value12")
             .add_key_value_pair("g_key3", "g_value13")
             .build();
 
-        let (_, section1) = IniSectionBuilder::new()
+        let (_, section1) = IniSectionBuilder::default()
             .add_key_value_pair("key1", "value21")
             .add_key_value_pair("key2", "value22")
             .build();
 
-        let (_, section2) = IniSectionBuilder::new()
+        let (_, section2) = IniSectionBuilder::default()
             .add_key_value_pair("key1", "value31")
             .add_key_value_pair("key2", "value32")
             .add_key_value_pair("key3", "value33")

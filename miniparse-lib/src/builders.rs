@@ -14,13 +14,8 @@ pub struct IniSectionBuilder<'content> {
 }
 
 impl<'content> IniSectionBuilder<'content> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn set_id(mut self, id: SectionId<'content>) -> Self {
-        self.id = id;
-        self
+    pub fn new(id: SectionId<'content>) -> Self {
+        Self { id, ..Default::default() }
     }
 
     pub fn add_entry(mut self, entry: IniEntry<'content>) -> Self {
