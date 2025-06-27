@@ -1,6 +1,7 @@
 mod builders;
 pub mod models;
 
+use lazy_static::lazy_static;
 use regex::Regex;
 use thiserror::Error;
 
@@ -13,8 +14,6 @@ pub const SECTION_NAME_GROUP_NAME: &str = "section_name";
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("Regex compilation error: {0}")]
-    RegexCompilationError(#[from] regex::Error),
     #[error("The group {0} was not found in the provided regex")]
     RegexCaptureGroupNotFound(&'static str),
     #[error("Regex match, but the given named group {0} was not found: Did the regex capture group name change?")]
@@ -38,12 +37,15 @@ fn add_section_to_ini_builder<'content>(
     }
 }
 
-pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, ParseError> {
-    let key_value_regex = Regex::new(&format!(
+lazy_static! {
+    static ref KEY_VALUE_REGEX: Regex = Regex::new(&format!(
         r"^\s*(?P<{ENTRY_KEY_GROUP_NAME}>[^=\s]+)\s*=\s*(?P<{ENTRY_VALUE_GROUP_NAME}>[^=\s]+)\s*$"
-    ))?;
-    let section_header_regex = Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$"))?;
+    ))
+    .expect("Invalid regex!");
+    static ref SECTION_HEADER_REGEX: Regex = Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$")).expect("Invalid regex!");
+}
 
+pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, ParseError> {
     let mut ini_file_builder = IniFileBuilder::new();
     let mut current_section_builder = IniSectionBuilder::new(SectionId::Global);
 
@@ -55,13 +57,13 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
             continue;
         }
 
-        if let Some(key_value_captures) = key_value_regex.captures(line) {
+        if let Some(key_value_captures) = KEY_VALUE_REGEX.captures(line) {
             log::debug!("Line matched key-value regex.");
             current_section_builder = current_section_builder.add_entry(IniEntry::try_from(key_value_captures)?);
             continue;
         }
 
-        if let Some(section_header_captures) = section_header_regex.captures(line) {
+        if let Some(section_header_captures) = SECTION_HEADER_REGEX.captures(line) {
             log::debug!("Line matched section start regex, adding current section");
             ini_file_builder = add_section_to_ini_builder(ini_file_builder, current_section_builder);
 
