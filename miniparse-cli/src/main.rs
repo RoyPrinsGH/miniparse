@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let contents = fs::read_to_string(args.path)?;
 
-    let ini_file = miniparse_lib::parse(contents.as_str())?;
+    let ini_file = miniparse::parse(contents.as_str())?;
 
     let found_section = match args.section {
         None => ini_file.get_global_section(),
