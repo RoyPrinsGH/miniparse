@@ -57,18 +57,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let contents = fs::read_to_string(args.path)?;
 
-    let ini_file = miniparse::parse(contents.as_str())?;
+    let found = miniparse::find(&contents, &args.key, args.section.as_deref())?;
 
-    let found_section = match args.section {
-        None => ini_file.get_global_section(),
-        Some(name) => ini_file.get_section_by_name(name.as_str()),
-    };
-
-    let Some(section) = found_section else {
-        return Err(anyhow!("The given ini file did not contain the specified section"))?;
-    };
-
-    match section.get_value_by_key(&args.key) {
+    match found {
         Some(value) => print!("{value}"),
         None => return Err(anyhow!("The given section did not contain the specified key"))?,
     }
