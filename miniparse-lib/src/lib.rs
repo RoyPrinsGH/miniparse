@@ -1,4 +1,4 @@
-mod builders;
+pub mod builders;
 pub mod models;
 
 use std::sync::LazyLock;
@@ -6,12 +6,12 @@ use std::sync::LazyLock;
 use regex::Regex;
 use thiserror::Error;
 
-pub use crate::builders::{IniFileBuilder, IniSectionBuilder, SectionId};
-use crate::models::{IniEntry, IniFile};
+use crate::builders::{IniFileBuilder, IniSectionBuilder};
+use crate::models::{IniEntry, IniFile, SectionId};
 
-pub const ENTRY_KEY_GROUP_NAME: &str = "key";
-pub const ENTRY_VALUE_GROUP_NAME: &str = "value";
-pub const SECTION_NAME_GROUP_NAME: &str = "section_name";
+const ENTRY_KEY_GROUP_NAME: &str = "key";
+const ENTRY_VALUE_GROUP_NAME: &str = "value";
+const SECTION_NAME_GROUP_NAME: &str = "section_name";
 
 #[derive(Error, Debug)]
 pub enum ParseError {
