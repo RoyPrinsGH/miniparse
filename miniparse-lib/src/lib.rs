@@ -1,7 +1,8 @@
 mod builders;
 pub mod models;
 
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
+
 use regex::Regex;
 use thiserror::Error;
 
@@ -37,13 +38,15 @@ fn add_section_to_ini_builder<'content>(
     }
 }
 
-lazy_static! {
-    static ref KEY_VALUE_REGEX: Regex = Regex::new(&format!(
+static KEY_VALUE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
         r"^\s*(?P<{ENTRY_KEY_GROUP_NAME}>[^=\s]+)\s*=\s*(?P<{ENTRY_VALUE_GROUP_NAME}>[^=\s]+)\s*$"
     ))
-    .expect("Invalid regex!");
-    static ref SECTION_HEADER_REGEX: Regex = Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$")).expect("Invalid regex!");
-}
+    .expect("Invalid regex!")
+});
+
+static SECTION_HEADER_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$")).expect("Invalid regex!"));
 
 pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, ParseError> {
     let mut ini_file_builder = IniFileBuilder::new();
