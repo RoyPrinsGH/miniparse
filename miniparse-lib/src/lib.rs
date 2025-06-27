@@ -17,8 +17,6 @@ const SECTION_NAME_GROUP_NAME: &str = "section_name";
 pub enum ParseError {
     #[error("The group {0} was not found in the provided regex")]
     RegexCaptureGroupNotFound(&'static str),
-    #[error("Regex match, but the given named group {0} was not found: Did the regex capture group name change?")]
-    RegexCaptureGroupNameMismatch(&'static str),
 }
 
 fn add_section_to_ini_builder<'content>(
@@ -47,6 +45,72 @@ static KEY_VALUE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 static SECTION_HEADER_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(&format!(r"^\[(?P<{SECTION_NAME_GROUP_NAME}>.+)\]$")).expect("Invalid regex!"));
+
+// When section_to_find is empty, will look for first key with that name
+pub fn find<'content>(
+    ini_string: &'content str,
+    key_to_find: &'content str,
+    section_to_find: Option<&'content str>,
+) -> Result<Option<&'content str>, ParseError> {
+    let mut section_found = false;
+
+    for line in ini_string.lines().map(str::trim) {
+        log::debug!("Searching line: {line}");
+
+        if line.is_empty() {
+            log::debug!("Line is empty: skipping");
+            continue;
+        }
+
+        if let Some(section_to_find_name) = section_to_find {
+            if let Some(section_header_captures) = SECTION_HEADER_REGEX.captures(line) {
+                log::debug!("Found a new section header");
+
+                if section_found {
+                    // We found a new section, while already in the section we were trying to search through.
+                    // So the key wasn't present
+                    log::debug!("Searched through the specified section - key not found");
+                    return Ok(None);
+                }
+
+                let new_section_name = section_header_captures
+                    .name(SECTION_NAME_GROUP_NAME)
+                    .ok_or(ParseError::RegexCaptureGroupNotFound(SECTION_NAME_GROUP_NAME))?
+                    .as_str();
+
+                if new_section_name == section_to_find_name {
+                    log::debug!("Section header is the specified section - searching for specified key");
+                    section_found = true;
+                }
+
+                continue;
+            }
+
+            if !section_found {
+                // Still looking for the specified section
+                continue;
+            }
+        }
+
+        if let Some(key_value_captures) = KEY_VALUE_REGEX.captures(line) {
+            let key = key_value_captures
+                .name(ENTRY_KEY_GROUP_NAME)
+                .ok_or(ParseError::RegexCaptureGroupNotFound(ENTRY_KEY_GROUP_NAME))?
+                .as_str();
+
+            if key == key_to_find {
+                let value = key_value_captures
+                    .name(ENTRY_VALUE_GROUP_NAME)
+                    .ok_or(ParseError::RegexCaptureGroupNotFound(ENTRY_VALUE_GROUP_NAME))?
+                    .as_str();
+
+                return Ok(Some(value));
+            }
+        }
+    }
+
+    Ok(None)
+}
 
 pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, ParseError> {
     let mut ini_file_builder = IniFileBuilder::new();
@@ -91,7 +155,7 @@ pub fn parse<'content>(ini_string: &'content str) -> Result<IniFile<'content>, P
 
 #[cfg(test)]
 mod tests {
-    use crate::{IniFileBuilder, builders::IniSectionBuilder, parse};
+    use crate::{IniFileBuilder, builders::IniSectionBuilder, find, parse};
 
     fn make_dummy_ini_string() -> String {
         let (_, global_section) = IniSectionBuilder::default()
@@ -127,21 +191,21 @@ mod tests {
     }
 
     #[test]
-    fn find_existing_section() {
+    fn find_existing_section_in_parsed_file() {
         let dummy_ini_string = make_dummy_ini_string();
         let ini_file = parse(dummy_ini_string.as_str()).unwrap();
         assert!(ini_file.get_section_by_name("section1").is_some())
     }
 
     #[test]
-    fn do_not_find_non_existing_section() {
+    fn do_not_find_non_existing_section_in_parsed_file() {
         let dummy_ini_string = make_dummy_ini_string();
         let ini_file = parse(dummy_ini_string.as_str()).unwrap();
         assert!(ini_file.get_section_by_name("i do not exist").is_none())
     }
 
     #[test]
-    fn find_existing_key() {
+    fn find_existing_key_in_parsed_file() {
         let dummy_ini_string = make_dummy_ini_string();
         let ini_file = parse(dummy_ini_string.as_str()).unwrap();
         let section1 = ini_file.get_section_by_name("section1").unwrap();
@@ -149,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    fn do_not_find_non_existing_key() {
+    fn do_not_find_non_existing_key_in_parsed_file() {
         let dummy_ini_string = make_dummy_ini_string();
         let ini_file = parse(dummy_ini_string.as_str()).unwrap();
         let section1 = ini_file.get_section_by_name("section1").unwrap();
@@ -157,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn find_correct_value() {
+    fn find_correct_value_in_parsed_file() {
         let dummy_ini_string = make_dummy_ini_string();
         let ini_file = parse(dummy_ini_string.as_str()).unwrap();
         let section1 = ini_file.get_section_by_name("section1").unwrap();
@@ -165,10 +229,31 @@ mod tests {
     }
 
     #[test]
-    fn find_correct_global_value() {
+    fn find_correct_global_value_in_parsed_file() {
         let dummy_ini_string = make_dummy_ini_string();
         let ini_file = parse(dummy_ini_string.as_str()).unwrap();
         let global_section = ini_file.get_global_section().unwrap();
         assert_eq!(global_section.get_value_by_key("g_key1").unwrap(), "g_value11")
+    }
+
+    #[test]
+    fn find_correct_value() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let found_value = find(dummy_ini_string.as_str(), "key1", Some("section1")).unwrap().unwrap();
+        assert_eq!(found_value, "value21")
+    }
+
+    #[test]
+    fn do_not_find_non_existing_key() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let found_value = find(dummy_ini_string.as_str(), "i do not exist", None).unwrap();
+        assert!(found_value.is_none())
+    }
+
+    #[test]
+    fn find_global_value() {
+        let dummy_ini_string = make_dummy_ini_string();
+        let found_value = find(dummy_ini_string.as_str(), "g_key2", None).unwrap().unwrap();
+        assert_eq!(found_value, "g_value12")
     }
 }
